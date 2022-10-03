@@ -20,20 +20,13 @@ intents.members = True
 intents.reactions = True
 bot = commands.Bot(command_prefix=['♪','&'],intents=intents, help_command=None)
 
-async def setup():
-    for filename in os.listdir("./cogs"):
-        if filename.endswith(".py"):
-            # cut off the .py from the file name
-            await bot.load_extension(f"cogs.{filename[:-3]}")
 
 @bot.event
-async def on_ready(self):
+async def on_ready():
     print('Ready!')
 
-async def main():
-    async with bot:
-        await setup()
-        await bot.start(os.getenv('BOT_TOKEN'))
+for filename in os.listdir('./cogs'):
+    if filename.endswith('.py') and not filename.startswith("nocog"):
+        bot.load_extension(f'cogs.{filename[:-3]}')
 
-
-asyncio.run(main())
+bot.run(os.getenv('BOT_TOKEN'))

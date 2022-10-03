@@ -58,13 +58,14 @@ class MusicPlayer:
 
     async def get_random_song(self, ctx):
         res = requests.post("https://anisongdb.com/api/get_50_random_songs").json()
-        source1 = await YTDLSource.from_url(ctx, res[random.randint(0,49)], loop=self.bot.loop)
-        print(f"Added {source1.title}")
-        await self.queue.put(source1)
+        if self.queue.qsize() < 2:
+            source1 = await YTDLSource.from_url(ctx, res[random.randint(0,49)], loop=self.bot.loop)
+            print(f"Added {source1.title}")
+            await self.queue.put(source1)
 
-        source2 = await YTDLSource.from_url(ctx, res[random.randint(0,49)], loop=self.bot.loop)
-        print(f"Added {source2.title}")
-        await self.queue.put(source2)
+            source2 = await YTDLSource.from_url(ctx, res[random.randint(0,49)], loop=self.bot.loop)
+            print(f"Added {source2.title}")
+            await self.queue.put(source2)
 
     async def player_loop(self):
         """Our main player loop."""
@@ -107,11 +108,12 @@ class MusicPlayer:
             except:
                 print("Failed to parse xml from response (%s)" % traceback.format_exc())
 
-            image = data["ann"]["anime"]["info"][0]["@src"]
             self._guild.voice_client.play(source, after=lambda _: self.bot.loop.call_soon_threadsafe(self.next.set))
             embed = discord.Embed(title="Reproduciendo ahora: ",color=0x0061ff)
-            embed.set_thumbnail(url=image)
-            embed.add_field(name="Nombre de la Canción",value=source.title)
+            if "@src" in data["ann"]["anime"]["info"][0]:
+                image = data["ann"]["anime"]["info"][0]["@src"]
+                embed.set_thumbnail(url=image)
+            embed.add_field(name="Canción",value=source.title)
             embed.add_field(name="Artista",value=source.artist)
             embed.add_field(name="Tipo",value=source.type,inline=False)
             embed.add_field(name="Anime",value=source.anime,inline=False)

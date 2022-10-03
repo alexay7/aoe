@@ -53,6 +53,10 @@ class Music(commands.Cog):
         self.bot = bot
         self.players = {}
 
+    @commands.Cog.listener()
+    async def on_ready(self):
+        print("Cog de musica cargado con éxito")
+
     async def cleanup(self, guild):
         try:
             await guild.voice_client.disconnect()
@@ -126,7 +130,6 @@ class Music(commands.Cog):
                 await channel.connect()
             except asyncio.TimeoutError:
                 raise VoiceConnectionError(f'Conectándome al canal: <{channel}> no se pudo conectar.')
-
         await ctx.send(f'Connected to: **{channel}**', delete_after=20)
 
     @commands.command(name='play', aliases=['sing'])
@@ -151,9 +154,6 @@ class Music(commands.Cog):
         res = requests.post("https://anisongdb.com/api/search_request",
                             json={"song_name_search_filter": {"search": song, "partial_match": True}, "anime_search_filter": {"search": anime, "partial_match": True}}).json()
 
-        if(player.playlist_settings["randomize"]):
-            await ctx.send("Modo aleatorio desactivado")
-        player.playlist_settings["randomize"]=False
         # If download is False, source will be a dict which will be used later to regather the stream.
         # If download is True, source will be a discord.FFmpegPCMAudio with a VolumeTransformer.
         message:discord.Message = await ctx.send("Descargando canción...")
@@ -162,11 +162,33 @@ class Music(commands.Cog):
 
         await player.queue.put(source)
 
-    @commands.command(name="buscar")
-    async def selector_(self,ctx,song):
-        res = requests.post("https://anisongdb.com/api/search_request",
-                            json={"song_name_search_filter": {"search": song, "partial_match": True}}).json()
+    @commands.command()
+    async def buscar(self,ctx):
+        await ctx.send("Este comando solo funciona con /",delete_after=10.0)
 
+    @commands.slash_command(name="buscar")
+    async def selector_(self,ctx,
+        canción: discord.Option(str, "Artista a buscar", required=False),
+        anime: discord.Option(str, "Anime a buscar", required=False), 
+        artista: discord.Option(str, "Artista a buscar", required=False)):
+        """Buscar una canción para reproducir"""
+        await ctx.defer()
+        body={
+            "and_logic":True,
+            "ignore_duplicate":True
+        }
+
+        if canción:
+            body["song_name_search_filter"]={"search": canción, "partial_match": True}
+
+        if anime:
+            body["anime_search_filter"]={"search": anime, "partial_match": True}
+
+        if artista:
+            body["artist_search_filter"]={"search": artista, "partial_match": True}
+
+        res = requests.post("https://anisongdb.com/api/search_request",
+                            json=body).json()
         vc = ctx.voice_client
         player = self.get_player(ctx)
 
@@ -175,23 +197,34 @@ class Music(commands.Cog):
 
         message=""
         index=1
-        for elem in res:
-            if index<12:
-                message+=f"{index}) {elem['songName']} - {elem['songArtist']}\n"
-                index+=1
-
-        player = self.get_player(ctx)
-    
-        await ctx.send(message)
-        response = await self.bot.wait_for("message",check=lambda message:message.author == ctx.author)
-        if response.content.isnumeric():
+        if len(res)==0:
+            await ctx.respond("No se encontraron resultados",delete_after=10.0)
+            return
+        elif len(res)==1:
             message:discord.Message = await ctx.send("Descargando canción...")
-            source = await YTDLSource.from_url(ctx, res[int(response.content)-1], loop=self.bot.loop)
+            source = await YTDLSource.from_url(ctx, res[0], loop=self.bot.loop)
             await message.delete()
+        else:
+            for elem in res:
+                if index<15:
+                    message+=f"{index}) {elem['songName']} - {elem['songArtist']} ({elem['songType']}) [{elem['animeJPName']}]\n"
+                    index+=1
+
+            player = self.get_player(ctx)
+        
+            song_list = await ctx.send(message,delete_after=30)
+            response = await self.bot.wait_for("message",check=lambda message:message.author == ctx.author and message.content.isnumeric() or message.content == "x")
+            if response.content.isnumeric():
+                await song_list.delete()
+                message:discord.Message = await ctx.send("Descargando canción...")
+                source = await YTDLSource.from_url(ctx, res[int(response.content)-1], loop=self.bot.loop)
+                await message.delete()
 
         await player.queue.put(source)
+        
+        await ctx.respond(f"{source.title} añadida a la cola con éxito en la posición {player.queue.qsize()} de la cola!",delete_after=15.0)
 
-    @commands.command(name='random')
+    @commands.command(name='aleatorio',aliases=['random'])
     async def random_(self, ctx):
         """Request a song and add it to the queue.
 
@@ -214,16 +247,26 @@ class Music(commands.Cog):
 
         if(not player.playlist_settings["randomize"]):
             await ctx.send("Modo aleatorio activado")
+            player.playlist_settings["randomize"]=True
+        else:
+            await ctx.send("Modo aleatorio desactivado")
+            player.playlist_settings["randomize"]=False
+            return
 
         res = requests.post("https://anisongdb.com/api/get_50_random_songs").json()
         # If download is False, source will be a dict which will be used later to regather the stream.
         # If download is True, source will be a discord.FFmpegPCMAudio with a VolumeTransformer.
-        source = await YTDLSource.from_url(ctx, res[random.randint(0,49)], loop=self.bot.loop)
-        player.playlist_settings["randomize"]=True
+        num1 = random.randint(0,49)
+        num2 = num1
+        while num2 == num1:
+            num2=random.randint(0,49)
+        source1 = await YTDLSource.from_url(ctx, res[num1], loop=self.bot.loop)
+        await player.queue.put(source1)
 
-        await player.queue.put(source)
+        source2 = await YTDLSource.from_url(ctx, res[num2], loop=self.bot.loop)
+        await player.queue.put(source2)
 
-    @commands.command(name='pause')
+    @commands.command(name='pausa',aliases=['pause'])
     async def pause_(self, ctx):
         """Pause the currently playing song."""
         vc = ctx.voice_client
@@ -236,7 +279,7 @@ class Music(commands.Cog):
         vc.pause()
         await ctx.send(f'**`{ctx.author}`**: Ha pausado la música.')
 
-    @commands.command(name='resume')
+    @commands.command(name='reanudar',aliases=['resume'])
     async def resume_(self, ctx):
         """Resume the currently paused song."""
         vc = ctx.voice_client
@@ -249,7 +292,7 @@ class Music(commands.Cog):
         vc.resume()
         await ctx.send(f'**`{ctx.author}`**: Ha reanudado la música.')
 
-    @commands.command(name='skip')
+    @commands.command(name='saltar',aliases=['skip'])
     async def skip_(self, ctx):
         """Skip the song."""
         vc = ctx.voice_client
@@ -265,7 +308,7 @@ class Music(commands.Cog):
         vc.stop()
         await ctx.send(f'**`{ctx.author}`**: Ha saltado la canción.')
 
-    @commands.command(name='queue', aliases=['q', 'playlist'])
+    @commands.command(name='cola', aliases=['q', 'playlist','queue'])
     async def queue_info(self, ctx):
         """Retrieve a basic queue of upcoming songs."""
         vc = ctx.voice_client
@@ -275,17 +318,17 @@ class Music(commands.Cog):
 
         player = self.get_player(ctx)
         if player.queue.empty():
-            return await ctx.send('No hay canciones en la cola.')
+            return await ctx.send('No hay canciones en la cola.',delete_after=10)
 
         # Grab up to 5 entries from the queue...
         upcoming = list(itertools.islice(player.queue._queue, 0, 5))
 
-        fmt = '\n'.join(f'**`{_["title"]}`**' for _ in upcoming)
-        embed = discord.Embed(title=f'Próxima canción - Next {len(upcoming)}', description=fmt)
+        fmt = '\n'.join(f'**`{_["title"]} - {_["artist"]} [{_["anime"]}]`**' for _ in upcoming)
+        embed = discord.Embed(title=f'Próxima canción - Pendientes: {len(upcoming)}', description=fmt)
 
-        await ctx.send(embed=embed)
+        await ctx.send(embed=embed,delete_after=15)
 
-    @commands.command(name='now_playing', aliases=['np', 'current', 'currentsong', 'playing'])
+    @commands.command(name='info', aliases=['np', 'current', 'currentsong', 'playing'])
     async def now_playing_(self, ctx):
         """Display information about the currently playing song."""
         vc = ctx.voice_client
@@ -303,7 +346,7 @@ class Music(commands.Cog):
         except discord.HTTPException:
             pass
         
-        url = "https://cdn.animenewsnetwork.com/encyclopedia/api.xml?anime=21469"
+        url = f"https://cdn.animenewsnetwork.com/encyclopedia/api.xml?anime={player.current.ann_id}"
 
         http = urllib3.PoolManager()
 
@@ -314,11 +357,22 @@ class Music(commands.Cog):
             print("Failed to parse xml from response (%s)" % traceback.format_exc())
 
         image = data["ann"]["anime"]["info"][0]["@src"]
+        source=player.current
 
-        player.np = await ctx.send(f'**Reproduciendo:** `{vc.source.title}` '
-                                   f'pedida por `{vc.source.requester}`')
+        embed = discord.Embed(title="Reproduciendo ahora: ",color=0x0061ff)
+        if "@src" in data["ann"]["anime"]["info"][0]:
+            image = data["ann"]["anime"]["info"][0]["@src"]
+            embed.set_thumbnail(url=image)
+        embed.add_field(name="Canción",value=source.title)
+        embed.add_field(name="Artista",value=source.artist)
+        embed.add_field(name="Tipo",value=source.type,inline=False)
+        embed.add_field(name="Anime",value=source.anime,inline=False)
+        embed.add_field(name="Season",value=source.season,inline=True)
+        embed.add_field(name="Vídeo",
+                                value=f"[{source.title}]({source.video_url})")
+        player.np = await ctx.send(embed=embed)
 
-    @commands.command(name='volume', aliases=['vol'])
+    @commands.command(name='volumen', aliases=['vol','volume'])
     async def change_volume(self, ctx, *, vol: float=-1):
         """Change the player volume.
 
@@ -346,7 +400,7 @@ class Music(commands.Cog):
         player.volume = vol / 100
         await ctx.send(f'**`{ctx.author}`**: Fijó el volumen en **{vol}%**')
 
-    @commands.command(name='stop')
+    @commands.command(name='parar',aliases=['stop'])
     async def stop_(self, ctx):
         """Stop the currently playing song and destroy the player.
 
@@ -361,5 +415,5 @@ class Music(commands.Cog):
         await self.cleanup(ctx.guild)
 
 
-async def setup(bot):
-    await bot.add_cog(Music(bot))
+def setup(bot):
+    bot.add_cog(Music(bot))
