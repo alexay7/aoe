@@ -18,6 +18,7 @@ e.g You might like to implement a vote before skipping the song or only allow ad
 Music bots require lots of work, and tuning. Goodluck.
 If you find any bugs feel free to ping me on discord. @Eviee#0666
 """
+import datetime
 import json
 import os
 import random
@@ -178,6 +179,19 @@ class Music(commands.Cog):
             "ignore_duplicate":True
         }
 
+        current_time = datetime.datetime.now()
+
+        if not canción and not artista and not anime:
+            await ctx.respond("Tienes que rellenar al menos uno de los 3 parámetros",delete_after=10)
+            return
+
+        if (canción or artista) and ((current_time.minute>30 and current_time.hour in [13,20,6]) or (current_time.minute<30 and current_time.hour in [14,21,7])):
+            if anime:
+                await ctx.send("Ahora mismo hay una ranked en progreso así que solo se tendrá en cuenta el campo de anime",delete_after=10)
+            else:
+                await ctx.respond("Ahora mismo hay una ranked en progreso así que solo se pueden buscar canciones por anime",delete_after=10)
+                return
+
         if canción:
             body["song_name_search_filter"]={"search": canción, "partial_match": True}
 
@@ -206,7 +220,7 @@ class Music(commands.Cog):
             await message.delete()
         else:
             for elem in res:
-                if index<15:
+                if index<15 and elem["audio"]!=None:
                     message+=f"{index}) {elem['songName']} - {elem['songArtist']} ({elem['songType']}) [{elem['animeJPName']}]\n"
                     index+=1
 
@@ -222,7 +236,7 @@ class Music(commands.Cog):
 
         await player.queue.put(source)
         
-        await ctx.respond(f"{source.title} añadida a la cola con éxito en la posición {player.queue.qsize()} de la cola!",delete_after=15.0)
+        await ctx.respond(f"{source.title} añadida con éxito en la posición {player.queue.qsize()} de la cola!",delete_after=15.0)
 
     @commands.command(name='aleatorio',aliases=['random'])
     async def random_(self, ctx):
@@ -253,13 +267,22 @@ class Music(commands.Cog):
             player.playlist_settings["randomize"]=False
             return
 
+        audio=None
+
         res = requests.post("https://anisongdb.com/api/get_50_random_songs").json()
         # If download is False, source will be a dict which will be used later to regather the stream.
         # If download is True, source will be a discord.FFmpegPCMAudio with a VolumeTransformer.
-        num1 = random.randint(0,49)
+        while audio == None:
+            num1 = random.randint(0,49)
+            audio = res[num1]["audio"]
+
         num2 = num1
+        audio=None
         while num2 == num1:
-            num2=random.randint(0,49)
+            while audio==None:
+                num2=random.randint(0,49)
+                audio = res[num2]["audio"]
+        
         source1 = await YTDLSource.from_url(ctx, res[num1], loop=self.bot.loop)
         await player.queue.put(source1)
 
