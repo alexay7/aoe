@@ -26,8 +26,11 @@ import shutil
 import discord
 from discord.ext import commands
 import urllib3
+from helpers.anilist import get_random_anime
 from helpers.messages import send_message_with_buttons
+from helpers.myanimelist import get_random_mal_anime
 from helpers.player import MusicPlayer
+from helpers.songs import get_anilist_song, get_mal_song, get_random_song, get_semirandom_song
 from helpers.youtube import YTDLSource
 
 import asyncio
@@ -167,11 +170,136 @@ class Music(commands.Cog):
     async def buscar(self,ctx):
         await ctx.send("Este comando solo funciona con /",delete_after=10.0)
 
+    @commands.slash_command(name="playlist")
+    async def artistplaylist_(self,ctx,
+        modo: discord.Option(str, "Playlist de artista o anime", required=True, choices=["artista","anime"]),
+        param: discord.Option(str, "Artista/Anime a buscar", required=False),
+        genre: discord.Option(str, "Género a buscar", required=False),
+        openings: discord.Option(bool, "Buscar openings (default: true)", default=True),
+        endings: discord.Option(bool, "Buscar endings (default: true)", default=True),
+        inserts: discord.Option(bool, "Buscar inserts (default: false)", default=False),
+        exacto:discord.Option(bool,"Buscar nombre exacto",default=False)
+    ):
+
+        vc = ctx.voice_client
+
+        if not vc:
+            await ctx.invoke(self.connect_)
+
+        await ctx.defer()
+        player = self.get_player(ctx)
+        player.playlist_settings["mode"]=modo
+        player.playlist_settings["openings"]=openings
+        player.playlist_settings["endings"]=endings
+        player.playlist_settings["inserts"]=inserts
+        player.playlist_settings["exact"]=exacto
+
+        if param:
+            player.playlist_settings["param"]=param
+        if genre:
+            player.playlist_settings["genre"]=genre
+
+        if modo == "artista" and not param:
+            return await ctx.respond("Tienes que concretar el artista!",delete_after=10)
+
+        if modo == "anime" and not param:
+            return await ctx.respond("Tienes que concretar el anime!",delete_after=10)
+
+        if modo == "anilist" and not param and not genre:
+            return await ctx.respond("Tienes que concretar el usuario de anilist o el género del anime!",delete_after=10)
+
+        await get_semirandom_song(player)
+        await ctx.respond("Playlist cargada con éxito")
+        # artista -> busca en la base de datos directamente
+        # anime -> busca en la base de datos directamente
+        # anilist -> busca en anilist, si hay género solo busca cosas del género dicho
+
+    @commands.slash_command(name="anilist")
+    async def anilistplay_(self,ctx,
+    anilistname:discord.Option(str,"Nombre de anilist",required=True)):
+
+        await ctx.defer()
+
+        vc = ctx.voice_client
+
+        if not vc:
+            await ctx.invoke(self.connect_)
+
+        player = self.get_player(ctx)
+        player = self.get_player(ctx)
+        player.playlist_settings["mode"]="anilist"
+        player.playlist_settings["anilist_name"]=anilistname
+        try:
+            await get_anilist_song(player)
+        except:
+            return await ctx.respond("Ha ocurrido un error cargando la cuenta de anilist")
+        return await ctx.respond(f"Cargada con éxito la cuenta de anilist de {anilistname}",delete_after=10.0)
+
+    @commands.slash_command(name="myanimelist")
+    async def myanimelistplay_(self,ctx,
+    malname:discord.Option(str,"Nombre de myanimelist",required=True)):
+        await ctx.defer()
+
+        vc = ctx.voice_client
+
+        if not vc:
+            await ctx.invoke(self.connect_)
+
+        player = self.get_player(ctx)
+        player = self.get_player(ctx)
+        player.playlist_settings["mode"]="mal"
+        player.playlist_settings["mal_name"]=malname
+        try:
+            await get_mal_song(player)
+        except:
+            return await ctx.respond("Ha ocurrido un error cargando la cuenta de myanimelist")
+        return await ctx.respond(f"Cargada con éxito la cuenta de myanimelist de {malname}",delete_after=10.0)
+
+    @commands.command(name="historial",aliases=["h","history"])
+    async def gethistory_(self,ctx):
+        with open("temp/history.txt","r",encoding="utf-8") as file:
+            text=f"```{file.read()}```"
+            file.close()
+        await ctx.send(text)
+        
+
+    @commands.command(name='aleatorio',aliases=['random'])
+    async def random_(self, ctx):
+        """Request a song and add it to the queue.
+
+        This command attempts to join a valid voice channel if the bot is not already in one.
+        Uses YTDL to automatically search and retrieve a song.
+
+        Parameters
+        ------------
+        search: str [Required]
+            The song to search and retrieve using YTDL. This could be a simple search, an ID or URL.
+        """
+        # await ctx.trigger_typing()
+
+        vc = ctx.voice_client
+
+        if not vc:
+            await ctx.invoke(self.connect_)
+
+        player = self.get_player(ctx)
+
+        if(player.playlist_settings["mode"]!="random"):
+            await ctx.send("Modo aleatorio activado")
+            player.playlist_settings["mode"]="random"
+        else:
+            await ctx.send("Modo aleatorio desactivado")
+            player.playlist_settings["mode"]=""
+            return
+
+        await get_random_song(player)
+
     @commands.slash_command(name="buscar")
     async def selector_(self,ctx,
-        canción: discord.Option(str, "Artista a buscar", required=False),
+        canción: discord.Option(str, "Canción a buscar", required=False),
         anime: discord.Option(str, "Anime a buscar", required=False), 
-        artista: discord.Option(str, "Artista a buscar", required=False)):
+        artista: discord.Option(str, "Artista a buscar", required=False),
+        exacto:discord.Option(bool,"Buscar nombre exacto",default=False)):
         """Buscar una canción para reproducir"""
         await ctx.defer()
         body={
@@ -193,13 +321,13 @@ class Music(commands.Cog):
                 return
 
         if canción:
-            body["song_name_search_filter"]={"search": canción, "partial_match": True}
+            body["song_name_search_filter"]={"search": canción, "partial_match": not exacto}
 
         if anime:
-            body["anime_search_filter"]={"search": anime, "partial_match": True}
+            body["anime_search_filter"]={"search": anime, "partial_match": not exacto}
 
         if artista:
-            body["artist_search_filter"]={"search": artista, "partial_match": True}
+            body["artist_search_filter"]={"search": artista, "partial_match": not exacto}
 
         res = requests.post("https://anisongdb.com/api/search_request",
                             json=body).json()
@@ -237,57 +365,6 @@ class Music(commands.Cog):
         await player.queue.put(source)
         
         await ctx.respond(f"{source.title} añadida con éxito en la posición {player.queue.qsize()} de la cola!",delete_after=15.0)
-
-    @commands.command(name='aleatorio',aliases=['random'])
-    async def random_(self, ctx):
-        """Request a song and add it to the queue.
-
-        This command attempts to join a valid voice channel if the bot is not already in one.
-        Uses YTDL to automatically search and retrieve a song.
-
-        Parameters
-        ------------
-        search: str [Required]
-            The song to search and retrieve using YTDL. This could be a simple search, an ID or URL.
-        """
-        # await ctx.trigger_typing()
-
-        vc = ctx.voice_client
-
-        if not vc:
-            await ctx.invoke(self.connect_)
-
-        player = self.get_player(ctx)
-
-        if(not player.playlist_settings["randomize"]):
-            await ctx.send("Modo aleatorio activado")
-            player.playlist_settings["randomize"]=True
-        else:
-            await ctx.send("Modo aleatorio desactivado")
-            player.playlist_settings["randomize"]=False
-            return
-
-        audio=None
-
-        res = requests.post("https://anisongdb.com/api/get_50_random_songs").json()
-        # If download is False, source will be a dict which will be used later to regather the stream.
-        # If download is True, source will be a discord.FFmpegPCMAudio with a VolumeTransformer.
-        while audio == None:
-            num1 = random.randint(0,49)
-            audio = res[num1]["audio"]
-
-        num2 = num1
-        audio=None
-        while num2 == num1:
-            while audio==None:
-                num2=random.randint(0,49)
-                audio = res[num2]["audio"]
-        
-        source1 = await YTDLSource.from_url(ctx, res[num1], loop=self.bot.loop)
-        await player.queue.put(source1)
-
-        source2 = await YTDLSource.from_url(ctx, res[num2], loop=self.bot.loop)
-        await player.queue.put(source2)
 
     @commands.command(name='pausa',aliases=['pause'])
     async def pause_(self, ctx):
@@ -331,7 +408,7 @@ class Music(commands.Cog):
         vc.stop()
         await ctx.send(f'**`{ctx.author}`**: Ha saltado la canción.')
 
-    @commands.command(name='cola', aliases=['q', 'playlist','queue'])
+    @commands.command(name='cola', aliases=['q','queue'])
     async def queue_info(self, ctx):
         """Retrieve a basic queue of upcoming songs."""
         vc = ctx.voice_client

@@ -57,7 +57,6 @@ class YTDLSource(discord.PCMVolumeTransformer):
             # take first item from a playlist
             data = data['entries'][0]
         filename = data['title'] if stream else ytdl.prepare_filename(data)
-
         songInfo = {
             "title":songData["songName"],
             "artist":songData["songArtist"],

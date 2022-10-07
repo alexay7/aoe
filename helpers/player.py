@@ -1,12 +1,16 @@
 import asyncio
+import datetime
 import os
 import random
+import re
 import shutil
+from time import strftime
 import traceback
 import discord
 import requests
 from async_timeout import timeout
 import urllib3
+from helpers.songs import get_anilist_song, get_mal_song, get_random_song, get_semirandom_song
 from helpers.youtube import YTDLSource
 import xmltodict
 
@@ -47,25 +51,22 @@ class MusicPlayer:
         self.volume = .25
         self.current = None
         self.playlist_settings = {
-            "randomize":False,
-            "userList":0,
+            "mode":"",
+            "param":"",
+            "genre":"",
             "openings":True,
             "endings":True,
-            "inserts":False
+            "inserts":False,
+            "exact":False,
+            "anilist_name":"",
+            "mal_name":""
         }
 
         ctx.bot.loop.create_task(self.player_loop())
 
-    async def get_random_song(self, ctx):
-        res = requests.post("https://anisongdb.com/api/get_50_random_songs").json()
-        if self.queue.qsize() < 2:
-            source1 = await YTDLSource.from_url(ctx, res[random.randint(0,49)], loop=self.bot.loop)
-            print(f"Added {source1.title}")
-            await self.queue.put(source1)
-
-            source2 = await YTDLSource.from_url(ctx, res[random.randint(0,49)], loop=self.bot.loop)
-            print(f"Added {source2.title}")
-            await self.queue.put(source2)
+    async def add_song_to_queue(self,song):
+        source = await YTDLSource.from_url(self._ctx, song, loop=self.bot.loop)
+        await self.queue.put(source)
 
     async def player_loop(self):
         """Our main player loop."""
@@ -75,8 +76,15 @@ class MusicPlayer:
             empty_downloads()
             self.next.clear()
 
-            if(self.playlist_settings["randomize"]):
-                asyncio.ensure_future(self.get_random_song(self._ctx))
+            if self.queue.qsize() < 3:
+                if self.playlist_settings["mode"] == "random":
+                    asyncio.ensure_future(get_random_song(self))
+                elif self.playlist_settings["mode"] == "anilist":
+                    asyncio.ensure_future(get_anilist_song(self))
+                elif self.playlist_settings["mode"] == "mal":
+                    asyncio.ensure_future(get_mal_song(self))
+                else:
+                    asyncio.ensure_future(get_semirandom_song(self))
 
             try:
                 # Wait for the next song. If we timeout cancel the player and disconnect...
@@ -121,6 +129,18 @@ class MusicPlayer:
             embed.add_field(name="Vídeo",
                                    value=f"[{source.title}]({source.video_url})")
             self.np = await self._channel.send(embed=embed)
+            now = datetime.datetime.now()
+            history_elem = f"{now.strftime('%d/%m/%Y %H:%M:%S')} -> {source.title} de {source.artist} ({source.anime})\n"
+            with open("temp/history.txt","r+",encoding="utf-8") as file:
+                lines = file.read().split("\n")
+                index=0
+                for elem in lines:
+                    lines[index]+="\n"
+                    index+=1
+                lines.insert(0,history_elem)
+                file.seek(0)
+                file.writelines(lines[:10])
+                file.close()
             await self.next.wait()
             await asyncio.sleep(2)
 
