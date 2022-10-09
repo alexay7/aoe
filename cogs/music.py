@@ -237,7 +237,11 @@ class Music(commands.Cog):
 
     @commands.slash_command(name="myanimelist")
     async def myanimelistplay_(self,ctx,
-    malname:discord.Option(str,"Nombre de myanimelist",required=True)):
+    malname:discord.Option(str,"Nombre de myanimelist",required=True),
+    openings: discord.Option(bool, "Buscar openings (default: true)", default=True),
+        endings: discord.Option(bool, "Buscar endings (default: true)", default=True),
+        inserts: discord.Option(bool, "Buscar inserts (default: true)", default=False),
+    ):
         await ctx.defer()
 
         vc = ctx.voice_client
@@ -246,9 +250,12 @@ class Music(commands.Cog):
             await ctx.invoke(self.connect_)
 
         player = self.get_player(ctx)
-        player = self.get_player(ctx)
         player.playlist_settings["mode"]="mal"
         player.playlist_settings["mal_name"]=malname
+        player.playlist_settings["openings"]=openings
+        player.playlist_settings["endings"]=endings
+        player.playlist_settings["inserts"]=inserts
+        
         try:
             await get_mal_song(player)
         except:

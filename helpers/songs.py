@@ -81,9 +81,9 @@ async def get_mal_song(player):
         body={
                 "and_logic":True,
                 "ignore_duplicate":True,
-                "opening_filter":True,
-                "ending_filter":True,
-                "insert_filter":True
+                "opening_filter":player.playlist_settings["openings"],
+                "ending_filter":player.playlist_settings["endings"],
+                "insert_filter":player.playlist_settings["inserts"]
             }
         body["anime_search_filter"]={"search": found_anime, "partial_match": True}
         res = requests.post("https://anisongdb.com/api/search_request",json=body).json()

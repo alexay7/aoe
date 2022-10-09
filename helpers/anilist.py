@@ -102,3 +102,13 @@ async def get_random_anime(username):
         except:
             ...
     return anime
+
+# 115 PAGES
+
+#     {Page(page:1,perPage:50){
+#   pageInfo{
+#     total perPage currentPage lastPage hasNextPage
+#   }
+#   media(
+#     genre_in:["Comedy"],sort:END_DATE_DESC,status:FINISHED,startDate_greater:19000101){
+#         id title{romaji}{edges{isMain node{id name}}}}}}
