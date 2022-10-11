@@ -173,7 +173,7 @@ class Music(commands.Cog):
     @commands.slash_command(name="playlist")
     async def artistplaylist_(self,ctx,
         modo: discord.Option(str, "Playlist de artista o anime", required=True, choices=["artista","anime"]),
-        param: discord.Option(str, "Artista/Anime a buscar", required=False),
+        nombre: discord.Option(str, "Artista/Anime a buscar", required=False),
         genre: discord.Option(str, "Género a buscar", required=False),
         openings: discord.Option(bool, "Buscar openings (default: true)", default=True),
         endings: discord.Option(bool, "Buscar endings (default: true)", default=True),
@@ -194,18 +194,18 @@ class Music(commands.Cog):
         player.playlist_settings["inserts"]=inserts
         player.playlist_settings["exact"]=exacto
 
-        if param:
-            player.playlist_settings["param"]=param
+        if nombre:
+            player.playlist_settings["param"]=nombre
         if genre:
             player.playlist_settings["genre"]=genre
 
-        if modo == "artista" and not param:
+        if modo == "artista" and not nombre:
             return await ctx.respond("Tienes que concretar el artista!",delete_after=10)
 
-        if modo == "anime" and not param:
+        if modo == "anime" and not nombre:
             return await ctx.respond("Tienes que concretar el anime!",delete_after=10)
 
-        if modo == "anilist" and not param and not genre:
+        if modo == "anilist" and not nombre and not genre:
             return await ctx.respond("Tienes que concretar el usuario de anilist o el género del anime!",delete_after=10)
 
         await get_semirandom_song(player)
@@ -228,7 +228,9 @@ class Music(commands.Cog):
         player = self.get_player(ctx)
         player = self.get_player(ctx)
         player.playlist_settings["mode"]="anilist"
-        player.playlist_settings["anilist_name"]=anilistname
+        if anilistname in player.playlist_settings["anilist_name"]:
+            return await ctx.respond("Esa lista ya está cargada!",delete_after=5.0)
+        player.playlist_settings["anilist_name"].append(anilistname)
         try:
             await get_anilist_song(player)
         except:
@@ -251,7 +253,9 @@ class Music(commands.Cog):
 
         player = self.get_player(ctx)
         player.playlist_settings["mode"]="mal"
-        player.playlist_settings["mal_name"]=malname
+        if malname in player.playlist_settings["mal_name"]:
+            return await ctx.respond("Esa lista ya está cargada!",delete_after=5.0)
+        player.playlist_settings["mal_name"].append(malname)
         player.playlist_settings["openings"]=openings
         player.playlist_settings["endings"]=endings
         player.playlist_settings["inserts"]=inserts
@@ -261,6 +265,26 @@ class Music(commands.Cog):
         except:
             return await ctx.respond("Ha ocurrido un error cargando la cuenta de myanimelist")
         return await ctx.respond(f"Cargada con éxito la cuenta de myanimelist de {malname}",delete_after=10.0)
+
+    @commands.slash_command(name="quitarmal")
+    async def removemyanimelist_(self,ctx,
+        malname:discord.Option(str,"Nombre de myanimelist a borrar",required=True),
+    ):
+        player = self.get_player(ctx)
+        if malname in player.playlist_settings["mal_name"]:
+            player.playlist_settings["mal_name"].remove(malname)
+
+        await ctx.respond("Lista quitada con éxito")
+
+    @commands.slash_command(name="quitaranilist")
+    async def removeanilist_(self,ctx,
+        anilistname:discord.Option(str,"Nombre de anilist a borrar",required=True),
+    ):
+        player = self.get_player(ctx)
+        if anilistname in player.playlist_settings["anilist_name"]:
+            player.playlist_settings["anilist_name"].remove(anilistname)
+
+        await ctx.respond("Lista quitada con éxito")
 
     @commands.command(name="historial",aliases=["h","history"])
     async def gethistory_(self,ctx):

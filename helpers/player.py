@@ -58,8 +58,8 @@ class MusicPlayer:
             "endings":True,
             "inserts":False,
             "exact":False,
-            "anilist_name":"",
-            "mal_name":""
+            "anilist_name":[],
+            "mal_name":[]
         }
 
         ctx.bot.loop.create_task(self.player_loop())
@@ -128,19 +128,23 @@ class MusicPlayer:
             embed.add_field(name="Season",value=source.season,inline=True)
             embed.add_field(name="Vídeo",
                                    value=f"[{source.title}]({source.video_url})")
+            if source.list:
+                embed.add_field(name="Cortesía de: ",value=source.list,inline=False)
+            else:
+                embed.add_field(name="Cortesía de: ",value=source.requester.name,inline=False)
             self.np = await self._channel.send(embed=embed)
-            now = datetime.datetime.now()
-            history_elem = f"{now.strftime('%d/%m/%Y %H:%M:%S')} -> {source.title} de {source.artist} ({source.anime})\n"
-            with open("temp/history.txt","r+",encoding="utf-8") as file:
-                lines = file.read().split("\n")
-                index=0
-                for elem in lines:
-                    lines[index]+="\n"
-                    index+=1
-                lines.insert(0,history_elem)
-                file.seek(0)
-                file.writelines(lines[:10])
-                file.close()
+            # now = datetime.datetime.now()
+            # history_elem = f"{now.strftime('%d/%m/%Y %H:%M:%S')} -> {source.title} de {source.artist} ({source.anime})\n"
+            # with open("temp/history.txt","r+",encoding="utf-8") as file:
+            #     lines = file.read().split("\n")
+            #     index=0
+            #     for elem in lines:
+            #         lines[index]+="\n"
+            #         index+=1
+            #     lines.insert(0,history_elem)
+            #     file.seek(0)
+            #     file.writelines(lines[:10])
+            #     file.close()
             await self.next.wait()
             await asyncio.sleep(2)
 

@@ -38,6 +38,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         self.filename=data.get("filename")
         self.ann_id=data.get("annId")
         self.video_url=data.get("videoUrl")
+        self.list = data.get("list")
 
         # YTDL info dicts (data) have other useful information you might want
         # https://github.com/rg3/youtube-dl/blob/master/README.md
@@ -56,6 +57,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         if 'entries' in data:
             # take first item from a playlist
             data = data['entries'][0]
+        
         filename = data['title'] if stream else ytdl.prepare_filename(data)
         songInfo = {
             "title":songData["songName"],
@@ -67,4 +69,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
             "annId":songData["annId"],
             "videoUrl":songData["HQ"]
         }
+        if "list" in songData:
+            songInfo["list"]=songData["list"]
+
         return cls(discord.FFmpegPCMAudio(filename), data=songInfo, requester=ctx.author)

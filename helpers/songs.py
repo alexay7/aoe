@@ -44,7 +44,7 @@ async def get_semirandom_song(player):
         
 
 async def get_anilist_song(player):
-    anilist_name = player.playlist_settings["anilist_name"]
+    anilist_name = random.choice(player.playlist_settings["anilist_name"])
 
     songs_found=0
 
@@ -67,11 +67,11 @@ async def get_anilist_song(player):
     while audio == None:
         num1 = random.randint(0,len(res)-1)
         audio = res[num1]["audio"]
-
+    res[num1]["list"]=anilist_name
     return await player.add_song_to_queue(res[num1])
 
 async def get_mal_song(player):
-    mal_name = player.playlist_settings["mal_name"]
+    mal_name = random.choice(player.playlist_settings["mal_name"])
 
     songs_found=0
 
@@ -94,5 +94,5 @@ async def get_mal_song(player):
     while audio == None:
         num1 = random.randint(0,len(res)-1)
         audio = res[num1]["audio"]
-
+    res[num1]["list"]=mal_name
     return await player.add_song_to_queue(res[num1])

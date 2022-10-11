@@ -101,6 +101,7 @@ async def get_random_anime(username):
             anime = data["data"]["Page"]["mediaList"][random_num]["media"]["title"]["romaji"]
         except:
             ...
+            
     return anime
 
 # 115 PAGES

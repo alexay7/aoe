@@ -21,4 +21,5 @@ async def get_random_mal_anime(username):
             anime_name = anime_info["alternative_titles"]["en"] or anime_info["title"]
         except:
             ...
+    
     return anime_name
