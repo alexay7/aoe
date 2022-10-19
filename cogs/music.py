@@ -18,19 +18,22 @@ e.g You might like to implement a vote before skipping the song or only allow ad
 Music bots require lots of work, and tuning. Goodluck.
 If you find any bugs feel free to ping me on discord. @Eviee#0666
 """
+from collections import Counter
 import datetime
 import json
+from operator import attrgetter
 import os
 import random
 import shutil
 import discord
 from discord.ext import commands
+from matplotlib import artist
 import urllib3
 from helpers.anilist import get_random_anime
 from helpers.messages import send_message_with_buttons
-from helpers.myanimelist import get_random_mal_anime
+from helpers.myanimelist import get_all_animes, get_random_mal_anime
 from helpers.player import MusicPlayer
-from helpers.songs import get_anilist_song, get_mal_song, get_random_song, get_semirandom_song
+from helpers.songs import get_all_songs, get_anilist_song, get_mal_song, get_random_song, get_semirandom_song
 from helpers.youtube import YTDLSource
 
 import asyncio
@@ -545,6 +548,87 @@ class Music(commands.Cog):
 
         await self.cleanup(ctx.guild)
 
+    @commands.command(name="download")
+    async def downloadlist_(self,ctx,username):
+        all_songs = []
+        anime_list = await get_all_animes(username)
+        for elem in anime_list:
+            song_list = await get_all_songs(elem["english"])
+            if(elem["english"]!=elem["original"]):
+                song_list+= await get_all_songs(elem["original"])
+            for song in song_list:
+                if song not in all_songs:
+                    print(song)
+                    all_songs.append(song)
+                else:
+                    print("repeated song",song)
+        with open(f"temp/{username}.json","w",encoding="utf-8") as file:
+            json.dump(all_songs,file)
+            await ctx.send(f"Registradas todas las canciones de: {username}")
+                
+    @commands.command(name="stats")
+    async def getstats_(self,ctx,username):
+        try:
+            with open(f"temp/{username}.json","r",encoding="utf-8") as file:
+                data = json.load(file)
+        except:
+            await ctx.send("Tu lista de anime no está registrada, para cargarla usa el comando &download [nombredemal]",delete_after=10.0)
+            return
+        total = len(data)
+        counted = Counter((song["artist"]) for song in data)
+        output = [Item(artist, k) for (artist), k in counted.items()]
+        sorted_output = sorted(output,key=lambda x:x.count,reverse=True)
+
+        artist_list = ""
+        index=1
+        for elem in sorted_output:
+            if(index>50):
+                break
+            artist_list+=f"{index}º) {elem.artist}: {str(elem.count)}\n"
+            index+=1
+        await ctx.send(f"-- CANCIONES DE {username} TOTAL:{total}--\n```{artist_list}``` ",delete_after=60)
+
+    @commands.command(name="compare")
+    async def compare_(self,ctx,username1,username2):
+        try:
+            with open(f"temp/{username1}.json","r",encoding="utf-8") as file:
+                data1 = json.load(file)
+        except:
+            await ctx.send("Tu lista de anime no está registrada, para cargarla usa el comando &download [nombredemal]",delete_after=10.0)
+            return
+        try:
+            with open(f"temp/{username2}.json","r",encoding="utf-8") as file:
+                data2 = json.load(file)
+        except:
+            await ctx.send("Tu lista de anime no está registrada, para cargarla usa el comando &download [nombredemal]",delete_after=10.0)
+            return
+        common = []
+        for elem in data1:
+            if(elem in data2):
+                common.append(elem)
+        shared = len(common)
+        counted = Counter((song["artist"]) for song in common)
+        output = [Item(artist, k) for (artist), k in counted.items()]
+        sorted_output = sorted(output,key=lambda x:x.count,reverse=True)
+
+        artist_list = ""
+        index=1
+        for elem in sorted_output:
+            if(index>50):
+                break
+            artist_list+=f"{index}º) {elem.artist}: {str(elem.count)}\n"
+            index+=1
+        await ctx.send(f"-- CANCIONES EN COMÚN ENTRE {username1} Y {username2} Total:{shared}--\n```{artist_list}```",delete_after=60)
+
+class Item:
+    def __init__(self, artist, count):
+        self.artist = artist
+        self.count = count
+
+    def __repr__(self):
+        return '{"artist":'+self.artist+',"count":'+str(self.count)+'}'
+
+        
 
 def setup(bot):
     bot.add_cog(Music(bot))

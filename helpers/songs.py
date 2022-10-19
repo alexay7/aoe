@@ -96,3 +96,23 @@ async def get_mal_song(player):
         audio = res[num1]["audio"]
     res[num1]["list"]=mal_name
     return await player.add_song_to_queue(res[num1])
+
+async def get_all_songs(anime_name):
+    song_list = []
+    body={
+                "and_logic":True,
+                "ignore_duplicate":True,
+                "opening_filter":True,
+                "ending_filter":True,
+                "insert_filter":True
+            }
+    body["anime_search_filter"]={"search": anime_name, "partial_match": False}
+    res = requests.post("https://anisongdb.com/api/search_request",json=body).json()
+    for elem in res:
+        found_song = {
+        "title":elem["songName"],
+        "artist":elem["songArtist"],
+        "anime":elem["animeJPName"]}
+        song_list.append(found_song)
+    return song_list
+    

@@ -53,7 +53,11 @@ class YTDLSource(discord.PCMVolumeTransformer):
     @classmethod
     async def from_url(cls, ctx, songData, *, loop=None, stream=False):
         loop = loop or asyncio.get_event_loop()
-        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(songData["audio"], download=not stream))
+        try:
+            data = await loop.run_in_executor(None, lambda: ytdl.extract_info(songData["audio"], download=not stream))
+        except:
+            print(f"Algo raro con la canción {songData['songName']}")
+            return
         if 'entries' in data:
             # take first item from a playlist
             data = data['entries'][0]
