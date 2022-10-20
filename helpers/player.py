@@ -118,7 +118,7 @@ class MusicPlayer:
 
             self._guild.voice_client.play(source, after=lambda _: self.bot.loop.call_soon_threadsafe(self.next.set))
             embed = discord.Embed(title="Reproduciendo ahora: ",color=0x0061ff)
-            if "@src" in data["ann"]["anime"]["info"][0]:
+            if data and "@src" in data["ann"]["anime"]["info"][0]:
                 image = data["ann"]["anime"]["info"][0]["@src"]
                 embed.set_thumbnail(url=image)
             embed.add_field(name="Canción",value=source.title)
@@ -132,7 +132,11 @@ class MusicPlayer:
                 embed.add_field(name="Cortesía de: ",value=source.list,inline=False)
             else:
                 embed.add_field(name="Cortesía de: ",value=source.requester.name,inline=False)
-            self.np = await self._channel.send(embed=embed)
+            self.np:discord.Message = await self._channel.send(embed=embed)
+            await self.np.add_reaction(emoji="▶️")
+            await self.np.add_reaction(emoji="⏸️")
+            await self.np.add_reaction(emoji="⏹️")
+            await self.np.add_reaction(emoji="⏭️")
             # now = datetime.datetime.now()
             # history_elem = f"{now.strftime('%d/%m/%Y %H:%M:%S')} -> {source.title} de {source.artist} ({source.anime})\n"
             # with open("temp/history.txt","r+",encoding="utf-8") as file:

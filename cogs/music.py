@@ -56,13 +56,32 @@ class Music(commands.Cog):
 
     __slots__ = ('bot', 'players')
 
-    def __init__(self, bot):
+    def __init__(self, bot:discord.Bot):
         self.bot = bot
         self.players = {}
 
     @commands.Cog.listener()
     async def on_ready(self):
         print("Cog de musica cargado con éxito")
+
+    @commands.Cog.listener()
+    async def on_reaction_add(self, reaction:discord.Reaction,user:discord.User):
+        try:
+            ctx = await self.bot.get_application_context(user)
+            if not user.bot:
+                if reaction.emoji=="⏭️":
+                    await ctx.invoke(self.skip_)
+                elif reaction.emoji=="⏸️":
+                    await ctx.invoke(self.pause_)
+                elif reaction.emoji=="▶️":
+                    await ctx.invoke(self.resume_)
+                elif reaction.emoji=="⏹️":
+                    await ctx.invoke(self.stop_)
+                return await reaction.remove()
+        except:
+            ...
+            
+
 
     async def cleanup(self, guild):
         try:
