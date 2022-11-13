@@ -85,7 +85,7 @@ async def get_mal_song(player):
                 "ending_filter":player.playlist_settings["endings"],
                 "insert_filter":player.playlist_settings["inserts"]
             }
-        body["anime_search_filter"]={"search": found_anime, "partial_match": True}
+        body["anime_search_filter"]={"search": found_anime, "partial_match": False}
         res = requests.post("https://anisongdb.com/api/search_request",json=body).json()
 
         songs_found=len(res)

@@ -65,7 +65,7 @@ class Music(commands.Cog):
         print("Cog de musica cargado con éxito")
 
     @commands.Cog.listener()
-    async def on_reaction_add(self, reaction:discord.Reaction,user:discord.User):
+    async def on_reaction_add(self, reaction:discord.Reaction,user):
         try:
             ctx = await self.bot.get_application_context(user)
             if not user.bot:
@@ -80,6 +80,7 @@ class Music(commands.Cog):
                 return await reaction.remove()
         except:
             ...
+
             
 
 
@@ -123,6 +124,28 @@ class Music(commands.Cog):
             self.players[ctx.guild.id] = player
 
         return player
+
+    @commands.command(name="radio")
+    async def listenradio_(self,ctx,url="https://listen.moe/fallback"):
+        """Connect to listen.moe radio"""
+        vc:discord.VoiceClient = ctx.voice_client
+
+        if not vc:
+            await ctx.invoke(self.connect_)
+            vc = ctx.voice_client
+        vc.play(discord.FFmpegPCMAudio(url))
+        vc.source = discord.PCMVolumeTransformer(vc.source,volume=.1)
+        
+
+        embed = discord.Embed(title="Reproduciendo ahora: ",color=0x0061ff)
+        embed.add_field(name="Modo",value="Lista de reproducción externa")
+        self.np:discord.Message = await ctx.send(embed=embed)
+        await self.np.add_reaction(emoji="▶️")
+        await self.np.add_reaction(emoji="⏸️")
+
+    @commands.command("listaradios")
+    async def listaradios_(self,ctx):
+        await ctx.send("https://github.com/LaQuay/TDTChannels/blob/master/RADIO.md",delete_after=30.0)
 
     @commands.command(name='connect', aliases=['join'])
     async def connect_(self, ctx, *, channel: discord.VoiceChannel=None):
@@ -420,9 +443,14 @@ class Music(commands.Cog):
         await ctx.respond(f"{source.title} añadida con éxito en la posición {player.queue.qsize()} de la cola!",delete_after=15.0)
 
     @commands.command(name='pausa',aliases=['pause'])
-    async def pause_(self, ctx):
+    async def pause_(self, ctx:discord.ApplicationContext):
         """Pause the currently playing song."""
         vc = ctx.voice_client
+        
+        if "interaction" in ctx.__dict__:
+            user:discord.Member = ctx.__dict__["interaction"]
+            if not user.voice or user.voice.channel.id != vc.channel.id:
+                await ctx.send("Si no estás en el vc no decides las canciones",delete_after=10.0)
 
         if not vc or not vc.is_playing():
             return await ctx.send('¡No se está reproduciendo ninguna canción!', delete_after=20)
@@ -437,6 +465,11 @@ class Music(commands.Cog):
         """Resume the currently paused song."""
         vc = ctx.voice_client
 
+        if "interaction" in ctx.__dict__:
+            user:discord.Member = ctx.__dict__["interaction"]
+            if not user.voice or user.voice.channel.id != vc.channel.id:
+                await ctx.send("Si no estás en el vc no decides las canciones",delete_after=10.0)
+
         if not vc or not vc.is_connected():
             return await ctx.send('¡No se está reproduciendo ninguna canción!', delete_after=20)
         elif not vc.is_paused():
@@ -446,9 +479,14 @@ class Music(commands.Cog):
         await ctx.send(f'**`{ctx.author}`**: Ha reanudado la música.')
 
     @commands.command(name='saltar',aliases=['skip'])
-    async def skip_(self, ctx):
+    async def skip_(self, ctx:discord.ApplicationContext):
         """Skip the song."""
-        vc = ctx.voice_client
+        vc:discord.VoiceClient = ctx.voice_client
+
+        if "interaction" in ctx.__dict__:
+            user:discord.Member = ctx.__dict__["interaction"]
+            if not user.voice or user.voice.channel.id != vc.channel.id:
+                await ctx.send("Si no estás en el vc no decides las canciones",delete_after=10.0)
 
         if not vc or not vc.is_connected():
             return await ctx.send('¡No se está reproduciendo ninguna canción!', delete_after=20)
@@ -457,6 +495,7 @@ class Music(commands.Cog):
             pass
         elif not vc.is_playing():
             return
+
 
         vc.stop()
         await ctx.send(f'**`{ctx.author}`**: Ha saltado la canción.')
@@ -561,6 +600,17 @@ class Music(commands.Cog):
             This will destroy the player assigned to your guild, also deleting any queued songs and settings.
         """
         vc = ctx.voice_client
+        player = self.get_player(ctx)
+        for _ in range(player.queue.qsize()):
+            # Depending on your program, you may want to
+            # catch QueueEmpty
+            player.queue.get_nowait()
+            player.queue.task_done()
+
+        if "interaction" in ctx.__dict__:
+            user:discord.Member = ctx.__dict__["interaction"]
+            if not user.voice or user.voice.channel.id != vc.channel.id:
+                await ctx.send("Si no estás en el vc no decides las canciones",delete_after=10.0)
 
         if not vc or not vc.is_connected():
             return await ctx.send('¡No se está reproduciendo ninguna canción!', delete_after=20)
