@@ -21,17 +21,11 @@ If you find any bugs feel free to ping me on discord. @Eviee#0666
 from collections import Counter
 import datetime
 import json
-from operator import attrgetter
-import os
-import random
-import shutil
+import math
 import discord
 from discord.ext import commands
-from matplotlib import artist
 import urllib3
-from helpers.anilist import get_random_anime
-from helpers.messages import send_message_with_buttons
-from helpers.myanimelist import get_all_animes, get_random_mal_anime
+from helpers.myanimelist import get_all_animes
 from helpers.player import MusicPlayer
 from helpers.songs import get_all_songs, get_anilist_song, get_mal_song, get_random_song, get_semirandom_song
 from helpers.youtube import YTDLSource
@@ -42,7 +36,6 @@ import sys
 import traceback
 import requests
 import xmltodict
-import urllib
 
 class VoiceConnectionError(commands.CommandError):
     """Custom Exception class for connection errors."""
@@ -125,9 +118,11 @@ class Music(commands.Cog):
 
         return player
 
-    @commands.command(name="radio")
-    async def listenradio_(self,ctx,url="https://listen.moe/fallback"):
+    @commands.slash_command(name="radio")
+    async def listenradio_(self,ctx,url="http://192.168.1.136:10000/radio.mp3"):
         """Connect to listen.moe radio"""
+        if url =="listen":
+            url="https://listen.moe/fallback"
         vc:discord.VoiceClient = ctx.voice_client
 
         if not vc:
@@ -135,18 +130,39 @@ class Music(commands.Cog):
             vc = ctx.voice_client
         vc.play(discord.FFmpegPCMAudio(url))
         vc.source = discord.PCMVolumeTransformer(vc.source,volume=.1)
-        
+        extra = ""
+        if url=="http://192.168.1.136:10000/radio.mp3":
+            extra="Para ver información sobre la canción que está sonando escribe /quesuena."
+        print(url)
+        await ctx.respond("Radio iniciada con éxito. "+extra,delete_after=10.0)
+        # embed = discord.Embed(title="Reproduciendo ahora: ",color=0x0061ff)
+        # embed.add_field(name="Modo",value="Lista de reproducción externa")
+        # self.np:discord.Message = await ctx.send(embed=embed)
+        # await self.np.add_reaction(emoji="▶️")
+        # await self.np.add_reaction(emoji="⏸️")
 
-        embed = discord.Embed(title="Reproduciendo ahora: ",color=0x0061ff)
-        embed.add_field(name="Modo",value="Lista de reproducción externa")
-        self.np:discord.Message = await ctx.send(embed=embed)
-        await self.np.add_reaction(emoji="▶️")
-        await self.np.add_reaction(emoji="⏸️")
+    @commands.command()
+    async def radio(self,ctx,url="http://192.168.1.136:10000/radio.mp3"):
+        await self.listenradio_(ctx,url)
 
     @commands.command("listaradios")
     async def listaradios_(self,ctx):
         await ctx.send("https://github.com/LaQuay/TDTChannels/blob/master/RADIO.md",delete_after=30.0)
 
+    @commands.slash_command(name="quesuena")
+    async def quesuena_(self,ctx):
+        result = requests.get("http://192.168.1.136:85/api/nowplaying").json()
+        embed = discord.Embed(title="Reproduciendo ahora: ",color=0x0061ff)
+        embed.add_field(name="Nombre:",value=result[0]["now_playing"]["song"]["title"])
+        embed.add_field(name="Artista:",value=result[0]["now_playing"]["song"]["artist"])
+        embed.add_field(name="Duración:",value=f"{math.floor(result[0]['now_playing']['duration']/60)}:{result[0]['now_playing']['duration']%60}")
+        embed.set_thumbnail(url=result[0]['now_playing']["song"]["art"].replace("http://192.168.1.136:85","https://radio.leermangarapido.duckdns.org"))
+        self.np:discord.Message = await ctx.respond(embed=embed,delete_after=30.0)
+
+    @commands.command()
+    async def quesuena(self,ctx):
+        await self.quesuena_(ctx)
+        
     @commands.command(name='connect', aliases=['join'])
     async def connect_(self, ctx, *, channel: discord.VoiceChannel=None):
         """Connect to voice.
@@ -179,7 +195,7 @@ class Music(commands.Cog):
                 await channel.connect()
             except asyncio.TimeoutError:
                 raise VoiceConnectionError(f'Conectándome al canal: <{channel}> no se pudo conectar.')
-        await ctx.send(f'Connected to: **{channel}**', delete_after=20)
+        # await ctx.send(f'Connected to: **{channel}**', delete_after=10)
 
     @commands.command(name='play', aliases=['sing'])
     async def play_(self, ctx, song, anime):
