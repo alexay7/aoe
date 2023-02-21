@@ -155,9 +155,9 @@ class Music(commands.Cog):
         embed = discord.Embed(title="Reproduciendo ahora: ",color=0x0061ff)
         embed.add_field(name="Nombre:",value=result[0]["now_playing"]["song"]["title"])
         embed.add_field(name="Artista:",value=result[0]["now_playing"]["song"]["artist"])
-        embed.add_field(name="Duración:",value=f"{math.floor(result[0]['now_playing']['duration']/60)}:{result[0]['now_playing']['duration']%60}")
+        embed.add_field(name="Duración:",value=f"{math.floor(result[0]['now_playing']['duration']/60)}:{str(result[0]['now_playing']['duration']%60).zfill(2)}")
         embed.set_thumbnail(url=result[0]['now_playing']["song"]["art"].replace("http://192.168.1.136:85","https://radio.leermangarapido.duckdns.org"))
-        self.np:discord.Message = await ctx.respond(embed=embed,delete_after=30.0)
+        self.np:discord.Message = await ctx.respond(embed=embed)
 
     @commands.command()
     async def quesuena(self,ctx):
