@@ -35,6 +35,7 @@ import itertools
 import sys
 import traceback
 import requests
+import os
 import xmltodict
 
 class VoiceConnectionError(commands.CommandError):
@@ -133,7 +134,6 @@ class Music(commands.Cog):
         extra = ""
         if url=="http://192.168.1.136:10000/radio.mp3":
             extra="Para ver información sobre la canción que está sonando escribe /quesuena."
-        print(url)
         await ctx.respond("Radio iniciada con éxito. "+extra,delete_after=10.0)
         # embed = discord.Embed(title="Reproduciendo ahora: ",color=0x0061ff)
         # embed.add_field(name="Modo",value="Lista de reproducción externa")
@@ -158,11 +158,14 @@ class Music(commands.Cog):
         embed.add_field(name="Duración:",value=f"{math.floor(result[0]['now_playing']['duration']/60)}:{str(result[0]['now_playing']['duration']%60).zfill(2)}")
         embed.set_thumbnail(url=result[0]['now_playing']["song"]["art"].replace("http://192.168.1.136:85","https://radio.leermangarapido.duckdns.org"))
         self.np:discord.Message = await ctx.respond(embed=embed)
-
-    @commands.command()
-    async def quesuena(self,ctx):
-        await self.quesuena_(ctx)
         
+    @commands.slash_command(name="saltar")
+    async def skipsong_(self,ctx):
+        headers = {"X-API-Key":os.getenv('AZURECAST_API_TOKEN')}
+        requests.post("http://192.168.1.136:85/api/station/1/backend/skip",headers=headers)
+        
+        await ctx.respond("Canción saltada con éxito",delete_after=10.0)
+
     @commands.command(name='connect', aliases=['join'])
     async def connect_(self, ctx, *, channel: discord.VoiceChannel=None):
         """Connect to voice.
