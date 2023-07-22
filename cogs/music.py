@@ -120,10 +120,12 @@ class Music(commands.Cog):
         return player
 
     @commands.slash_command(name="radio")
-    async def listenradio_(self,ctx,url="http://192.168.1.136:10000/radio.mp3"):
+    async def listenradio_(self,ctx,discord.Option(str, "url de la radio", required=True)):
         """Connect to listen.moe radio"""
         if url =="listen":
             url="https://listen.moe/fallback"
+        elif url == "iniesta":
+            url="http://192.168.1.136:10000/radio.mp3"
         vc:discord.VoiceClient = ctx.voice_client
 
         if not vc:
