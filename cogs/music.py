@@ -282,7 +282,10 @@ class Music(commands.Cog):
 
     @commands.slash_command(name="anilist")
     async def anilistplay_(self,ctx,
-    anilistname:discord.Option(str,"Nombre de anilist",required=True)):
+    anilistname:discord.Option(str,"Nombre de anilist",required=True),
+                              openings: discord.Option(bool, "Buscar openings (default: true)", default=True),
+        endings: discord.Option(bool, "Buscar endings (default: true)", default=True),
+        inserts: discord.Option(bool, "Buscar inserts (default: true)", default=False)):
 
         await ctx.defer()
 
@@ -297,6 +300,9 @@ class Music(commands.Cog):
         if anilistname in player.playlist_settings["anilist_name"]:
             return await ctx.respond("Esa lista ya está cargada!",delete_after=5.0)
         player.playlist_settings["anilist_name"].append(anilistname)
+        player.playlist_settings["openings"]=openings
+        player.playlist_settings["endings"]=endings
+        player.playlist_settings["inserts"]=inserts
         try:
             await get_anilist_song(player)
         except:
