@@ -120,7 +120,7 @@ class Music(commands.Cog):
         return player
 
     @commands.slash_command(name="radio")
-    async def listenradio_(self,ctx,discord.Option(str, "url de la radio", required=True)):
+    async def listenradio_(self,ctx,url: discord.Option(str, "url de la radio", required=True)):
         """Connect to listen.moe radio"""
         if url =="listen":
             url="https://listen.moe/fallback"
